@@ -3,13 +3,14 @@ from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTyp
 import requests
 import os
 import uuid
+import json
 
 # cobalt default port is 9000
 # enable port forwarding to your desired port
 url = ""
 token = ""
 
-def receive_url(user_input):
+def receive_video_url(user_input):
     payload = {"url": user_input}
     headers = {
         "Content-Type": "application/json",
@@ -17,15 +18,16 @@ def receive_url(user_input):
     }
 
     try:
-        response = requests.post(url, json=payload, headers=headers).json()
-        return response.get("url", None)
+        response = requests.post(url, json=payload, headers=headers).json() # receives json answer form cobalt api\
+        print(json.dumps(response, indent=4))
+        return response.get("url") # separates video url from json response
     except Exception as e:
         print(f"Error fetching URL: {e}")
         return None
 
 
 async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    video_url = receive_url(update.message.text)
+    video_url = receive_video_url(update.message.text)  # receive video url
 
     if not video_url:
         await update.message.reply_text("⚠️ Failed to fetch video URL.")
@@ -39,11 +41,11 @@ async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await update.message.reply_text("⚠️ Failed to download video.")
             return
 
-        with open(video_filename, "wb") as file:
+        with open(video_filename, "wb") as file: # downloads file. wb - write + binary mode
             for chunk in video_response.iter_content(chunk_size=1024 * 1024):  # 1MB chunks
                 file.write(chunk)
 
-        with open(video_filename, "rb") as file:
+        with open(video_filename, "rb") as file: # sends file. rb - read + binary mode
             await update.message.reply_video(video=file)
 
     except Exception as e:
