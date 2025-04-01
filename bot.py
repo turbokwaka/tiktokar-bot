@@ -5,9 +5,11 @@ import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
-url = ""
-token = ""
+token = os.environ.get("TOKEN")
+url = os.environ.get("URL")
 
+if not token or not url:
+    raise ValueError("TOKEN and URL must be set in the environment!")
 
 def receive_content_url(user_input):
     payload = { "url": user_input }

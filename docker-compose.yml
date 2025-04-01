@@ -1,0 +1,8 @@
+version: '3'
+services:
+  telegram-bot:
+    build: .
+    container_name: my-telegram-bot
+    environment:
+      - TOKEN=your_telegram_token
+      - URL=your_url
