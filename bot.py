@@ -22,12 +22,9 @@ def receive_content_url(user_input):
         response = requests.post(url, json=payload, headers=headers).json()
         print(json.dumps(response, indent=4))
 
-        # Correct condition: check if status is either "tunnel" or "redirect"
         if response.get("status") in ("tunnel", "redirect"):
-            # Return video URL (a string) and indicate type as video
             return response.get("url"), "video"
         else:
-            # For images, return the full response (dictionary) for further processing
             return response, "images"
     except Exception as e:
         print(f"Error fetching URL: {e}")
@@ -55,7 +52,6 @@ def download_photos(response_data):
     photo_filenames = []
 
     try:
-        # Validate the expected structure for image data
         if response_data.get("status") != "picker" or "picker" not in response_data:
             print("Invalid JSON format for images")
             return []
@@ -82,7 +78,6 @@ def download_photos(response_data):
 async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     response_data, content_type = receive_content_url(update.message.text)
 
-    # Check if the response was valid
     if not response_data:
         await update.message.reply_text("Error processing the URL.")
         return
