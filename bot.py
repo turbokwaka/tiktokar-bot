@@ -1,58 +1,109 @@
-from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
-import requests
-import os
 import uuid
+import requests
 import json
+import os
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
-# cobalt default port is 9000
-# enable port forwarding to your desired port
 url = ""
 token = ""
 
-def receive_video_url(user_input):
-    payload = {"url": user_input}
+
+def receive_content_url(user_input):
+    payload = { "url": user_input }
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
 
     try:
-        response = requests.post(url, json=payload, headers=headers).json() # receives json answer form cobalt api\
+        response = requests.post(url, json=payload, headers=headers).json()
         print(json.dumps(response, indent=4))
-        return response.get("url") # separates video url from json response
+
+        # Correct condition: check if status is either "tunnel" or "redirect"
+        if response.get("status") in ("tunnel", "redirect"):
+            # Return video URL (a string) and indicate type as video
+            return response.get("url"), "video"
+        else:
+            # For images, return the full response (dictionary) for further processing
+            return response, "images"
     except Exception as e:
         print(f"Error fetching URL: {e}")
-        return None
+        return None, None
 
 
-async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    video_url = receive_video_url(update.message.text)  # receive video url
-
-    if not video_url:
-        await update.message.reply_text("⚠️ Failed to fetch video URL.")
-        return
-
+def download_video(content_url):
     video_filename = f"{uuid.uuid4()}.mp4"
-
     try:
-        video_response = requests.get(video_url, stream=True)
+        video_response = requests.get(content_url, stream=True)
         if video_response.status_code != 200:
-            await update.message.reply_text("⚠️ Failed to download video.")
-            return
+            return None
 
-        with open(video_filename, "wb") as file: # downloads file. wb - write + binary mode
+        with open(video_filename, "wb") as file:
             for chunk in video_response.iter_content(chunk_size=1024 * 1024):  # 1MB chunks
                 file.write(chunk)
 
-        with open(video_filename, "rb") as file: # sends file. rb - read + binary mode
-            await update.message.reply_video(video=file)
-
+        return video_filename
     except Exception as e:
-        await update.message.reply_text(f"⚠️ Error: {str(e)}")
-    finally:
-        if os.path.exists(video_filename):
+        print(f"Error downloading video: {str(e)}")
+        return None
+
+
+def download_photos(response_data):
+    photo_filenames = []
+
+    try:
+        # Validate the expected structure for image data
+        if response_data.get("status") != "picker" or "picker" not in response_data:
+            print("Invalid JSON format for images")
+            return []
+
+        for item in response_data["picker"]:
+            if item.get("type") == "photo":
+                photo_url = item.get("url")
+                if photo_url:
+                    filename = f"{uuid.uuid4()}.jpeg"
+                    resp = requests.get(photo_url, stream=True)
+                    if resp.status_code == 200:
+                        with open(filename, "wb") as file:
+                            for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                                file.write(chunk)
+                        photo_filenames.append(filename)
+                    else:
+                        print(f"Failed to download {photo_url}")
+    except Exception as e:
+        print(f"Error downloading photos: {str(e)}")
+
+    return photo_filenames
+
+
+async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    response_data, content_type = receive_content_url(update.message.text)
+
+    # Check if the response was valid
+    if not response_data:
+        await update.message.reply_text("Error processing the URL.")
+        return
+
+    if content_type == "video":
+        video_filename = download_video(response_data)
+        if video_filename:
+            with open(video_filename, "rb") as file:
+                await update.message.reply_video(video=file)
             os.remove(video_filename)
+        else:
+            await update.message.reply_text("Failed to download the video.")
+    elif content_type == "images":
+        photo_filenames = download_photos(response_data)
+        if photo_filenames:
+            for filename in photo_filenames:
+                with open(filename, "rb") as file:
+                    await update.message.reply_photo(photo=file)
+                os.remove(filename)
+        else:
+            await update.message.reply_text("Failed to download images.")
+    else:
+        await update.message.reply_text("Unsupported content type.")
 
 
 app = ApplicationBuilder().token(token).build()
