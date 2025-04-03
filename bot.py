@@ -2,16 +2,18 @@ import uuid
 import requests
 import json
 import os
+from typing import Optional
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 
 token = os.environ.get("TOKEN")
 url = os.environ.get("URL")
+admin_chat_id = os.environ.get("ADMIN_CHAT_ID")
 
 if not token or not url:
     raise ValueError("TOKEN and URL must be set in the environment!")
 
-def receive_content_url(user_input):
+async def receive_content_url(user_input):
     payload = { "url": user_input }
     headers = {
         "Content-Type": "application/json",
@@ -27,7 +29,7 @@ def receive_content_url(user_input):
         else:
             return response, "images"
     except Exception as e:
-        print(f"Error fetching URL: {e}")
+        await send_error_log(user_input, update=None)
         return None, None
 
 
@@ -74,12 +76,31 @@ def download_photos(response_data):
 
     return photo_filenames
 
+async def send_error_log(info, update, context):
+    """Send error information to admin chat with user details"""
+    try:
+        # Get user information
+        user = update.effective_user
+        user_identifier = user.username or user.first_name or "Unknown user"
+
+        # Get user's input text if available
+        user_input = update.message.text if update.message and update.message.text else "No text input"
+
+        # Format the log message
+        log_message = f"User: {user_identifier}\n\nInput: {user_input}\n\nAPI Response: {info}"
+
+        # Send to admin only using context.bot
+        await context.bot.send_message(chat_id=admin_chat_id, text=log_message)
+    except Exception as e:
+        logger.error(f"Failed to send error log: {e}")
+
 
 async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    response_data, content_type = receive_content_url(update.message.text)
+    response_data, content_type = await receive_content_url(update.message.text)
 
     if not response_data:
         await update.message.reply_text("Error processing the URL.")
+        await send_error_log(response_data, update, context)
         return
 
     if content_type == "video":
@@ -90,6 +111,7 @@ async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             os.remove(video_filename)
         else:
             await update.message.reply_text("Failed to download the video.")
+            await send_error_log(response_data, update)
     elif content_type == "images":
         photo_filenames = download_photos(response_data)
         if photo_filenames:
@@ -99,9 +121,14 @@ async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 os.remove(filename)
         else:
             await update.message.reply_text("Failed to download images.")
+            await send_error_log(response_data, update, context)
     else:
         await update.message.reply_text("Unsupported content type.")
+        await send_error_log(response_data, update, context)
 
+
+async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Hi! Send me a URL to get started.")
 
 app = ApplicationBuilder().token(token).build()
 
@@ -109,5 +136,7 @@ app.add_handler(MessageHandler(
     filters.TEXT & ~filters.COMMAND,
     handle_any_text
 ))
+
+app.add_handler(CommandHandler("start", handle_start))
 
 app.run_polling()
