@@ -38,7 +38,7 @@ services:
 1. Update `TOKEN` and `URL` in the configuration.
 2. Build and run with:
    ```bash
-   docker-compose up --build
+   sudo docker compose up -d
    ```
 3. The bot will start polling Telegram and instruct Cobalt (running on the specified port) to download videos from the provided links.
 
