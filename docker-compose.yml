@@ -1,0 +1,32 @@
+services:
+  cobalt-api:
+    image: ghcr.io/imputnet/cobalt:10
+    init: true
+    read_only: true
+    restart: unless-stopped
+    container_name: cobalt-api
+    environment:
+      API_URL: "http://cobalt-api:9000"
+    networks:
+      - internal_net
+
+  bot:
+    build: .
+    container_name: bot
+    depends_on:
+      - cobalt-api
+    networks:
+      - internal_net
+    environment:
+#     TOKEN is your Telegram bot token. Get it from BotFather.
+      - TOKEN=your-telegram-bot-token
+#     Admins can see when users fail to download a video. A holder of ADMIN_CHAT_ID receives error log from the bot.
+#     If you don't want to use this feature - leave this field empty.
+      - ADMIN_CHAT_ID=your-admin-chat-id.
+      - COBALT_URL=http://cobalt-api:9000
+    volumes:
+      - ./bot_data:/app/data
+
+networks:
+  internal_net:
+    driver: bridge

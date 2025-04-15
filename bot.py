@@ -3,7 +3,6 @@ import logging
 import os
 import uuid
 from typing import Dict, List, Optional, Tuple, Union, Any
-
 import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
@@ -13,11 +12,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Constants
-TOKEN = os.environ.get("TOKEN")
-API_URL = os.environ.get("URL")
+TELEGRAM_TOKEN = os.environ.get("TOKEN")
+API_URL = os.environ.get("COBALT_URL")
 ADMIN_CHAT_ID = os.environ.get("ADMIN_CHAT_ID")
-CHUNK_SIZE = 1024 * 1024  # 1MB chunks
+CHUNK_SIZE = 1024 * 1024
 
 CONTENT_TYPE_VIDEO = "video"
 CONTENT_TYPE_IMAGES = "images"
@@ -26,8 +24,8 @@ STATUS_TUNNEL = "tunnel"
 STATUS_REDIRECT = "redirect"
 STATUS_PICKER = "picker"
 
-if not TOKEN or not API_URL:
-    raise ValueError("TOKEN and URL must be set in the environment!")
+if not TELEGRAM_TOKEN:
+    raise ValueError("TELEGRAM_TOKEN must be set in the environment!")
 
 
 async def process_url(user_input: str) -> Tuple[Optional[Union[str, Dict[str, Any]]], Optional[str]]:
@@ -99,16 +97,18 @@ async def send_error_log(info: Any, update: Optional[Update] = None,
 
     try:
         user_identifier = "Unknown user"
+        chat_id = "No user ID"
         user_input = "No text input"
 
         if update and update.effective_user:
             user = update.effective_user
             user_identifier = user.username or user.first_name or user_identifier
+            chat_id = user.id or chat_id
 
         if update and update.message and update.message.text:
             user_input = update.message.text
 
-        log_message = f"User: {user_identifier}\n\nInput: {user_input}\n\nAPI Response: {info}"
+        log_message = f"User: {user_identifier}\n\nChat ID: {chat_id}\n\nInput: {user_input}\n\nAPI Response: {info}"
 
         await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=log_message)
     except Exception as e:
@@ -116,10 +116,15 @@ async def send_error_log(info: Any, update: Optional[Update] = None,
 
 
 async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = update.effective_chat.id
+    user_identifier = update.effective_user.username or update.effective_user.first_name or "Unknown user"
+    user_input = update.message.text
+    logger.info(f"Received message - Chat ID: {chat_id} - User: {user_identifier} - Message: {user_input}")
+
     response_data, content_type = await process_url(update.message.text)
 
     if not response_data:
-        await update.message.reply_text("Error processing the URL.")
+        await update.message.reply_text("Failed to download.")
         await send_error_log("Failed to process URL", update, context)
         return
 
@@ -130,7 +135,7 @@ async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 await update.message.reply_video(video=file)
             os.remove(video_filename)
         else:
-            await update.message.reply_text("Failed to download the video.")
+            await update.message.reply_text("Failed to download.")
             await send_error_log(response_data, update, context)
 
     elif content_type == CONTENT_TYPE_IMAGES:
@@ -141,11 +146,11 @@ async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     await update.message.reply_photo(photo=file)
                 os.remove(filename)
         else:
-            await update.message.reply_text("Failed to download images.")
+            await update.message.reply_text("Failed to download.")
             await send_error_log(response_data, update, context)
 
     else:
-        await update.message.reply_text("Unsupported content type.")
+        await update.message.reply_text("Failed to download.")
         await send_error_log(response_data, update, context)
 
 
@@ -154,7 +159,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 def main() -> None:
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_any_text))
     app.add_handler(CommandHandler("start", handle_start))
