@@ -1,17 +1,10 @@
-# Telegram Media Downloader Bot for Cobalt
+# Telegram Media Downloader Bot
 
 ## Overview
-This project is a simple Telegram bot that serves as an interface for the Cobalt app. Send the bot a video link, and it will instruct Cobalt (running on a specified port, typically `9000`) to download the video. Remember, the port is set during the Cobalt app setup.
-
-> **Note:** The Cobalt package can be [downloaded](https://github.com/imputnet/cobalt/pkgs/container/cobalt) from GitHub.
-
-## Features
-- **Simple Interface:** Download videos by sending a link via Telegram.
-- **Dockerized:** Easily deploy using Docker and Docker Compose.
+This project is a simple Telegram bot that serves as an interface for the Cobalt-tools app. Send the bot a video link, and it will send a video file back.
 
 ## Requirements
-- Create your Telegram bot using [BotFather](https://core.telegram.org/bots#6-botfather).
-- Cobalt package (ensure you specify the port during setup).
+- Create your Telegram bot using [BotFather](https://t.me/BotFather).
 - Docker & Docker Compose
 
 ## Setup
@@ -19,30 +12,15 @@ This project is a simple Telegram bot that serves as an interface for the Cobalt
 ### Environment Variables
 Before running the bot, set:
 - `TOKEN`: Your Telegram bot token (obtained from BotFather).
-- `URL`: The Cobalt service endpoint with the specified port (e.g., `http://<your_global_ip>:9000`).
-
-### Docker Compose Configuration
-Create a `docker-compose.yml` file with the following content:
-
-```yaml
-version: '3'
-services:
-  bot:
-    build: .
-    environment:
-      - TOKEN=your_telegram_bot_token
-      - URL=http://your_global_ip:9000
-```
+- `ADMIN_CHAT_ID`: Chat ID of admin, that will receive error logs (optional).
 
 ### Running the App
-1. Update `TOKEN` and `URL` in the configuration.
+1. Update `TOKEN` and `ADMIN_CHAT_ID` in the docker-compose.yml .
 2. Build and run with:
    ```bash
-   docker-compose up --build
+   sudo docker compose up -d
    ```
-3. The bot will start polling Telegram and instruct Cobalt (running on the specified port) to download videos from the provided links.
 
 ## Troubleshooting
-- Ensure `TOKEN` and `URL` are correctly set.
-- Verify Docker and Docker Compose are installed.
-- Confirm that your global IP and the specified port (default `9000`) are accessible.
+- Ensure `TOKEN` is correctly set.
+- Verify docker daemon is running.
