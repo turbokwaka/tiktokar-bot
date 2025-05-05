@@ -19,6 +19,7 @@ CHUNK_SIZE = 1024 * 1024
 
 CONTENT_TYPE_VIDEO = "video"
 CONTENT_TYPE_IMAGES = "images"
+CONTENT_TYPE_AUDIO = "audio"
 
 STATUS_TUNNEL = "tunnel"
 STATUS_REDIRECT = "redirect"
@@ -40,7 +41,10 @@ async def process_url(user_input: str) -> Tuple[Optional[Union[str, Dict[str, An
         logger.info(f"API response: {json.dumps(response, indent=4)}")
 
         if response.get("status") in (STATUS_TUNNEL, STATUS_REDIRECT):
-            return response.get("url"), CONTENT_TYPE_VIDEO
+            if response.get("filename").endswith(".mp3"):
+                return response.get("url"), CONTENT_TYPE_AUDIO
+            else:
+                return response.get("url"), CONTENT_TYPE_VIDEO
         else:
             return response, CONTENT_TYPE_IMAGES
     except Exception as e:
@@ -124,7 +128,7 @@ async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     response_data, content_type = await process_url(update.message.text)
 
     if not response_data:
-        await update.message.reply_text("Failed to download.")
+        await update.message.reply_text("Не вдалось скачати. Я вже нажалівся Артему.")
         await send_error_log("Failed to process URL", update, context)
         return
 
@@ -135,7 +139,7 @@ async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 await update.message.reply_video(video=file)
             os.remove(video_filename)
         else:
-            await update.message.reply_text("Failed to download.")
+            await update.message.reply_text("Не вдалось скачати. Я вже нажалівся Артему.")
             await send_error_log(response_data, update, context)
 
     elif content_type == CONTENT_TYPE_IMAGES:
@@ -146,22 +150,30 @@ async def handle_any_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     await update.message.reply_photo(photo=file)
                 os.remove(filename)
         else:
-            await update.message.reply_text("Failed to download.")
+            await update.message.reply_text("Не вдалось скачати. Я вже нажалівся Артему.")
             await send_error_log(response_data, update, context)
 
+    elif content_type == CONTENT_TYPE_AUDIO:
+        audio_filename = download_file(response_data, "mp3")
+        with open(audio_filename, "rb") as file:
+            await update.message.reply_audio(audio=file)
+            await update.message.reply_text("🥃")
+            os.remove(audio_filename)
+
     else:
-        await update.message.reply_text("Failed to download.")
+        await update.message.reply_text("Не вдалось скачати. Я вже нажалівся Артему.")
         await send_error_log(response_data, update, context)
 
 
 async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Hi! Send me a URL to get started.")
+    await update.message.reply_text("Скинь посилання на тікток і я його скачаю)).")
 
 
 def main() -> None:
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_any_text))
+    app.add_handler(MessageHandler(filters.Regex(r'https?://vm\.tiktok\.com/\w+/?') & ~filters.COMMAND, handle_any_text))
+    app.add_handler(MessageHandler(filters.Regex(r'https?://music\.youtube\.com/watch\?v=[\w-]+&si=[\w-]+') & ~filters.COMMAND, handle_any_text))
     app.add_handler(CommandHandler("start", handle_start))
 
     app.run_polling()
