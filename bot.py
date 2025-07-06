@@ -1,10 +1,12 @@
 import logging
 import os
 import re
+import uuid
 
 import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters, CallbackContext
+from yt_dlp import YoutubeDL
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -29,8 +31,7 @@ TIKTOK_VIDEO, TIKTOK_PHOTOS, YT_VIDEO, YT_MUSIC, INST_REELS, SYBAU = (
 # REGEX DICT
 REGEX_PATTERNS = {
     TIKTOK_VIDEO: [
-        re.compile(r'https?://vm\.tiktok\.com/\w+/?'),  # короткі посилання
-        re.compile(r'https?://(www\.)?tiktok\.com/@[\w\.-]+/video/\d+'),  # повні відео
+        re.compile(r'https?://vm\.tiktok\.com/\w+/?'),
     ],
     TIKTOK_PHOTOS: [
         re.compile(r'https?://(www\.)?tiktok\.com/@[\w\.-]+/photo/\d+'),
@@ -47,6 +48,25 @@ REGEX_PATTERNS = {
         re.compile(r'https:\/\/www\.instagram\.com\/[^\/]+\/reel\/[A-Za-z0-9_-]+\/?'),
     ],
 }
+
+async def handle_tiktok(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    url = update.message.text
+    content_type = get_tiktok_content_type(url)
+
+    if content_type is TIKTOK_VIDEO:
+        file_name = str(uuid.uuid4())
+        options = {
+            'format': 'bestvideo+bestaudio/best',
+            'outtmpl': f'{file_name}.%(ext)s',
+            'merge_output_format': 'mp4'
+        }
+        with YoutubeDL(options) as ydl:
+            ydl.download([url])
+        with open(f"{file_name}.mp4", "rb") as file:
+            await update.message.reply_video(video=file)
+    if content_type is TIKTOK_PHOTOS:
+        with YoutubeDL() as ydl:
+            ydl.download([url])
 
 def get_tiktok_content_type(short_url):
     try:
@@ -96,7 +116,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 def main() -> None:
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    app.add_handler(MessageHandler(filters.ALL, handle_input))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(REGEX_PATTERNS[TIKTOK_VIDEO][0]), handle_tiktok))
     app.add_handler(CommandHandler("start", handle_start))
 
     app.run_polling()
