@@ -1,12 +1,6 @@
 services:
-  bot:
+  tiktokar-bot:
     build: .
-    container_name: bot
-    environment:
-#     TOKEN is your Telegram bot token. Get it from BotFather.
-      - TOKEN=your-telegram-bot-token
-#     Admins can see when users fail to download a video. A holder of ADMIN_CHAT_ID receives error log from the bot.
-#     If you don't want to use this feature - leave this field empty.
-      - ADMIN_CHAT_ID=your-admin-chat-id.
+    container_name: tiktokar-bot-container
     volumes:
       - ./bot_data:/app/data

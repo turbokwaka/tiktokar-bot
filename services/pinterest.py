@@ -7,97 +7,79 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
 def download_video(url: str) -> str:
-    output_file = str(uuid.uuid4()) + ".mp4"
-    m3u8_url = None
+    output_file = f"{uuid.uuid4()}.mp4"
 
     options = Options()
     options.add_argument("--headless")
     driver = webdriver.Chrome(options=options)
     driver.get(url)
-
     html = driver.page_source
-    with open("pinterest.html", "w", encoding="utf-8") as f:
-        f.write(html)
-
     driver.quit()
 
-
-    pattern = r'src="(https?://[^"]+\.m3u8)"'
-    match = re.search(pattern, html)
-
-    if match:
-        m3u8_url = match.group(1).replace("&amp;", "&")
-        print(f"✅ Знайдено m3u8 URL: {m3u8_url}")
-
-        cmd = [
-            "ffmpeg",
-            "-i", m3u8_url,
-            "-c", "copy",
-            "-bsf:a", "aac_adtstoasc",
-            "-loglevel", "error",
-            output_file
-        ]
-
-        print("🚀 Починаю завантаження...")
-        try:
-            subprocess.run(cmd, check=True)
-            print(f"✅ Завантаження завершено: {output_file}")
-            return output_file
-        except subprocess.CalledProcessError as e:
-            print(f"❌ Помилка під час виконання FFmpeg: {e}")
-            return None
-    else:
-        print("❌ Не вдалося знайти m3u8 URL на сторінці.")
+    match = re.search(r'src="(https?://[^"]+\.m3u8)"', html)
+    if not match:
+        print("No m3u8 URL found")
         return None
 
+    m3u8_url = match.group(1).replace("&amp;", "&")
+    print(f"Found m3u8: {m3u8_url}")
+    print(f"Downloading to {output_file}...")
 
-def download_photo(url: str):
-    output_file = str(uuid.uuid4()) + ".jpg"
+    cmd = [
+        "ffmpeg", "-i", m3u8_url,
+        "-c", "copy", "-bsf:a", "aac_adtstoasc",
+        "-loglevel", "error",
+        output_file
+    ]
+    try:
+        subprocess.run(cmd, check=True)
+        print(f"Saved: {output_file}")
+        return output_file
+    except subprocess.CalledProcessError as e:
+        print(f"FFmpeg error: {e}")
+        return None
+
+def download_photo(url: str) -> str:
+    output_file = f"{uuid.uuid4()}.jpg"
 
     options = Options()
     options.add_argument("--headless")
     driver = webdriver.Chrome(options=options)
     driver.get(url)
-
     html = driver.page_source
-
     driver.quit()
 
-    pattern = r'src="(https?://[^"]+\.jpg)"'
-    match = re.search(pattern, html)
-    if match:
-        content_url = match.group(1)
-        response = requests.get(content_url)
+    match = re.search(r'src="(https?://[^"]+\.jpg)"', html)
+    if not match:
+        print("No JPG URL found")
+        return None
 
-        if response.status_code == 200:
-            with open(output_file, "wb") as f:
-                f.write(response.content)
-            print(f"✅ Фото збережено як {output_file}")
-            return output_file
-        else:
-            print("❌ Не вдалося завантажити зображення")
-            return None
+    img_url = match.group(1)
+    print(f"Found image: {img_url}")
+    response = requests.get(img_url)
+    if response.status_code != 200:
+        print("Image download failed")
+        return None
 
+    with open(output_file, "wb") as f:
+        f.write(response.content)
+    print(f"Saved: {output_file}")
+    return output_file
 
-def pinterest_download(url: str):
-    final_url = None
+def fuck_pinterest(url: str) -> str:
+    # resolve pin.it redirects
     if url.startswith("https://pin.it/"):
-        response = requests.get(url, allow_redirects=True)
-        final_url = response.url
-    else:
-        final_url = url
+        r = requests.get(url, allow_redirects=True)
+        url = r.url
 
     options = Options()
     options.add_argument("--headless")
     driver = webdriver.Chrome(options=options)
     driver.get(url)
-
     html = driver.page_source
-    content_file_name = None
+    driver.quit()
 
     if "<video" in html:
-        content_file_name = download_video(url)
-        return content_file_name
+        return download_video(url)
     else:
-        content_file_name = download_photo(url)
-        return content_file_name
+        return download_photo(url)
