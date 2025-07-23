@@ -1,29 +1,31 @@
 import re
 import subprocess
 import uuid
+import logging
 
 import requests
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+
+from services.create_driver import hell_yeah
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def download_video(url: str) -> str:
     output_file = f"{uuid.uuid4()}.mp4"
 
-    options = Options()
-    options.add_argument("--headless")
-    driver = webdriver.Chrome(options=options)
+    driver = hell_yeah()
     driver.get(url)
     html = driver.page_source
     driver.quit()
 
     match = re.search(r'src="(https?://[^"]+\.m3u8)"', html)
     if not match:
-        print("No m3u8 URL found")
+        logger.error("No m3u8 URL found")
         return None
 
     m3u8_url = match.group(1).replace("&amp;", "&")
-    print(f"Found m3u8: {m3u8_url}")
-    print(f"Downloading to {output_file}...")
+    logger.info(f"Found m3u8: {m3u8_url}")
+    logger.info(f"Downloading to {output_file}...")
 
     cmd = [
         "ffmpeg", "-i", m3u8_url,
@@ -33,37 +35,35 @@ def download_video(url: str) -> str:
     ]
     try:
         subprocess.run(cmd, check=True)
-        print(f"Saved: {output_file}")
+        logger.info(f"Saved: {output_file}")
         return output_file
     except subprocess.CalledProcessError as e:
-        print(f"FFmpeg error: {e}")
+        logger.error(f"FFmpeg error: {e}")
         return None
 
 def download_photo(url: str) -> str:
     output_file = f"{uuid.uuid4()}.jpg"
 
-    options = Options()
-    options.add_argument("--headless")
-    driver = webdriver.Chrome(options=options)
+    driver = hell_yeah()
     driver.get(url)
     html = driver.page_source
     driver.quit()
 
     match = re.search(r'src="(https?://[^"]+\.jpg)"', html)
     if not match:
-        print("No JPG URL found")
+        logger.error("No JPG URL found")
         return None
 
     img_url = match.group(1)
-    print(f"Found image: {img_url}")
+    logger.info(f"Found image: {img_url}")
     response = requests.get(img_url)
     if response.status_code != 200:
-        print("Image download failed")
+        logger.error("Image download failed")
         return None
 
     with open(output_file, "wb") as f:
         f.write(response.content)
-    print(f"Saved: {output_file}")
+    logger.info(f"Saved: {output_file}")
     return output_file
 
 def fuck_pinterest(url: str) -> str:
@@ -72,9 +72,7 @@ def fuck_pinterest(url: str) -> str:
         r = requests.get(url, allow_redirects=True)
         url = r.url
 
-    options = Options()
-    options.add_argument("--headless")
-    driver = webdriver.Chrome(options=options)
+    driver = hell_yeah()
     driver.get(url)
     html = driver.page_source
     driver.quit()
