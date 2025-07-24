@@ -94,14 +94,19 @@ async def pizdec_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.effective_chat.send_message("Щось пішло не так. Ось тобі кітик ☺️")
     await update.effective_chat.send_animation(animation=get_kitty())
 
+async def kitty_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.effective_chat.send_animation(animation=get_kitty())
+
 def main() -> None:
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(MessageHandler(filters.TEXT & filters.Regex(PINTEREST_PATTERN), handle_pinterest))
     app.add_handler(MessageHandler(filters.TEXT & filters.Regex(TIKTOK_PATTERN), handle_tiktok))
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(PORNHUB_PATTERN), handle_pornhub))
+    # app.add_handler(MessageHandler(filters.TEXT & filters.Regex(PORNHUB_PATTERN), handle_pornhub))
     app.add_handler(MessageHandler(filters.TEXT & filters.Regex(YTMUSIC_PATTERN), handle_ytmusic))
+    app.add_handler(CommandHandler("fuckin_kitty", kitty_handler))
     app.add_handler(CommandHandler("start", handle_start))
+    app.add_error_handler(pizdec_handler)
 
     app.run_polling()
 

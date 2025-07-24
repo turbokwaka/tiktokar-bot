@@ -5,6 +5,7 @@ import subprocess
 import logging
 
 from services.create_driver import hell_yeah
+from services.tunnel_file import java_squirt
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -48,11 +49,11 @@ def fuck_pornhub(url: str):
     logger.info("📥 Starting download...")
     try:
         subprocess.run(cmd, check=True)
-        logger.info("✅ Завантаження завершено: %s", output_file)
+        logger.info("✅ Download finished: %s", output_file)
     except subprocess.CalledProcessError as e:
         logger.error("❌ FFmpeg error: %s", e)
         if os.path.exists(output_file):
             os.remove(output_file)
         return None
 
-    return output_file
+    return java_squirt(output_file)
