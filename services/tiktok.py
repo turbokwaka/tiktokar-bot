@@ -2,10 +2,14 @@ import re
 import json
 import uuid
 import logging
+from telnetlib import EC
+from time import sleep
 
 import requests
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.wait import WebDriverWait
+
+from services.create_driver import hell_yeah
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,36 +35,22 @@ def fuck_tiktok(url):
 
     logger.info(f"Video ID: {video_id}")
 
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-
-    options.add_argument(
-        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-    )
-
-    driver = webdriver.Chrome(options=options)
+    driver = hell_yeah()
 
     video_page_url = f"https://www.tiktok.com/@i/video/{video_id}"
     logger.info(f"Loading page: {video_page_url}")
     driver.get(video_page_url)
-    html = driver.page_source
     logger.info("Page source retrieved")
 
-    match = re.search(
-        r'<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">(.*?)</script>',
-        html, re.DOTALL
-    )
-    if not match:
+    try:
+        script_tag = driver.find_element(By.ID, "__UNIVERSAL_DATA_FOR_REHYDRATION__")
+        json_data = script_tag.get_attribute("innerHTML")
+        data = json.loads(json_data)
+    except Exception as e:
+        logger.error(f"Failed to extract JSON data from script tag: {e}")
         driver.quit()
-        logger.info("Data script not found")
         return None
 
-    logger.info("Data script found, parsing JSON")
-    data = json.loads(match.group(1))
     details = data["__DEFAULT_SCOPE__"]["webapp.video-detail"]
     item = details.get("itemInfo", {}).get("itemStruct", {})
 
@@ -96,7 +86,8 @@ def fuck_tiktok(url):
     session = requests.Session()
     session.headers.update({
         "Referer": video_page_url,
-        "User-Agent": options.arguments[-1]
+        "User-Agent": "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
     })
     for cookie in selenium_cookies:
         session.cookies.set(cookie['name'], cookie['value'], domain=cookie.get('domain', ''))
