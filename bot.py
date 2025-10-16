@@ -22,7 +22,9 @@ dp = Dispatcher()
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     await message.answer(
-        "Надішли мені посилання на TikTok, Reels, Pinterest або YT Music, і я завантажу медіа для тебе."
+        "Привіт!"
+        "\nКидай посилання на TikTok, YouTube (Shorts/Music) чи Pinterest - я завантажу. 🚀"
+        "\nТільки не Instagram Reels. Серйозно. 🙅‍️"
     )
 
 
