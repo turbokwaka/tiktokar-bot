@@ -1,30 +1,24 @@
-# Dockerfile
+# Використовуємо один базовий образ
+FROM python:3.11-slim-bookworm
 
-FROM python:3.11-slim-bookworm as builder
-
+# Встановлюємо системні залежності, необхідні для роботи
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     gallery-dl \
     && rm -rf /var/lib/apt/lists/*
 
+# Встановлюємо робочу директорію
 WORKDIR /app
 
-COPY pyproject.toml uv.lock* ./
+# Копіюємо файл з описом залежностей
+COPY pyproject.toml .
 
+# Встановлюємо Python-залежності за допомогою pip
+# Це найнадійніший спосіб для Docker
 RUN pip install --no-cache-dir .
 
-FROM python:3.11-slim-bookworm as final
+# Копіюємо решту файлів проєкту
+COPY . .
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    gallery-dl \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-
-COPY bot.py .
-COPY tools ./tools/
-
+# Вказуємо команду для запуску бота
 CMD ["python", "bot.py"]

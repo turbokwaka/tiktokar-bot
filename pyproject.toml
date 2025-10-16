@@ -10,7 +10,8 @@ dependencies = [
     "dotenv>=0.9.9",
     "gallery-dl>=1.30.10",
     "yt-dlp>=2025.10.14",
-    "ffmpeg"
+    "ffmpeg",
+    "gallery-dl"
 ]
 
 [project.optional-dependencies]
