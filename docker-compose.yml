@@ -1,6 +1,14 @@
+# docker-compose.yml
+
 services:
   tiktokar-bot:
     build: .
     container_name: tiktokar-bot-container
+    env_file:
+      - .env
     volumes:
-      - ./bot_data:/app/data
+      - media_temp:/app/temp
+    restart: unless-stopped
+
+volumes:
+  media_temp:
