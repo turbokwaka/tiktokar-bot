@@ -1,17 +1,30 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9-slim
+# Dockerfile
 
-# Set the working directory in the container
+FROM python:3.11-slim-bookworm as builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    gallery-dl \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy the requirements file into the container
-COPY requirements.txt .
+COPY pyproject.toml uv.lock* ./
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir .
 
-# Copy the current directory contents into the container at /app
-COPY . .
+FROM python:3.11-slim-bookworm as final
 
-# Command to run your bot script
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    gallery-dl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+
+COPY bot.py .
+COPY tools ./tools/
+
 CMD ["python", "bot.py"]
